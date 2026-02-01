@@ -3,6 +3,7 @@ import { useAppState } from '../state/AppStateContext';
 import { usePrescriptionSession } from '../state/PresessionStateContext';
 import { roleAccent } from '../routing/rolePaths';
 import { computeDigitalSignature } from '../utils/hash';
+import { decryptAndVerifyPrescription } from '../utils/crypto';
 import QRCode from '../components/QRCode';
 import AuditLogViewer from '../components/AuditLogViewer';
 import type { QRPrescriptionData, Prescription } from '../types/prescription';
@@ -75,10 +76,48 @@ export default function PharmacistRootPage() {
       return;
     }
 
+    // PROPER CRYPTOGRAPHIC WORKFLOW: Decrypt → Verify Signature
+    let decryptedData: any;
+    try {
+      if (prescription.encryptedData) {
+        // Decrypt the prescription data first (demonstrates proper workflow)
+        // In a real system, pharmacist would have the private key to decrypt
+        // For demo: We'll simulate having access to the private key
+        const simulatedPrivateKey = `PRIVATE_KEY_${prescription.encryptedData.publicKey.split('_')[1]}`;
+        decryptedData = decryptAndVerifyPrescription(
+          prescription.encryptedData.encryptedData,
+          prescription.encryptedData.encryptedKey,
+          simulatedPrivateKey
+        );
+        
+        console.log('🔓 Decrypted prescription data:', decryptedData);
+      } else {
+        // Fallback for non-encrypted prescriptions (backward compatibility)
+        decryptedData = {
+          patientName: prescription.patientName,
+          medicineList: prescription.medicineList
+        };
+      }
+    } catch (error) {
+      setVerificationResult({
+        status: 'Invalid',
+        prescriptionId: prescription.id,
+        message: 'Failed to decrypt prescription data.',
+      });
+      addAuditLogEntry({
+        actorRole: 'PHARMACIST',
+        action: 'VERIFICATION_FAILED',
+        prescriptionId: prescription.id,
+        details: 'Decryption failed - possible key mismatch',
+      });
+      return;
+    }
+
+    // Now verify digital signature on the decrypted data
     const expectedSignature = computeDigitalSignature({
       id: prescription.id,
-      patientName: prescription.patientName,
-      medicineList: prescription.medicineList,
+      patientName: decryptedData.patientName,
+      medicineList: decryptedData.medicineList,
       timestamp: prescription.timestamp,
     });
 
@@ -87,26 +126,26 @@ export default function PharmacistRootPage() {
       setVerificationResult({
         status: 'Valid',
         prescriptionId: prescription.id,
-        message: 'Signature matches. Prescription verified.',
+        message: 'Signature matches after decryption. Prescription verified.',
       });
       addAuditLogEntry({
         actorRole: 'PHARMACIST',
         action: 'QR_VERIFIED',
         prescriptionId: prescription.id,
-        details: 'Prescription verified successfully',
+        details: 'Prescription verified after decryption',
       });
     } else {
       updatePrescriptionStatus(prescription.id, 'TAMPERED');
       setVerificationResult({
         status: 'Tampered',
         prescriptionId: prescription.id,
-        message: 'Signature mismatch. Prescription may be tampered.',
+        message: 'Signature mismatch after decryption. Prescription may be tampered.',
       });
       addAuditLogEntry({
         actorRole: 'PHARMACIST',
         action: 'TAMPER_DETECTED',
         prescriptionId: prescription.id,
-        details: 'Signature mismatch detected',
+        details: 'Signature mismatch detected after decryption',
       });
     }
   }

@@ -188,6 +188,18 @@
   color: #a855f7;
 }
 
+.prescription-status--encrypted {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #3b82f6;
+}
+
+.prescription-status--decrypted {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #22c55e;
+}
+
 .prescription-body {
   display: grid;
   gap: 6px;

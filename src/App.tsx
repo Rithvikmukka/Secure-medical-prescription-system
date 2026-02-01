@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import RoleSelectPage from './routes/RoleSelectPage';
 import LoginPage from './routes/LoginPage';
-import OTPPage from './routes/OTPPage';
+import OtpPage from './routes/OtpPage';
 import PostLoginRouterPage from './routes/PostLoginRouterPage';
 import DoctorRootPage from './routes/DoctorRootPage';
 import PharmacistRootPage from './routes/PharmacistRootPage';
@@ -54,7 +54,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RoleSelectPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/otp" element={<OTPPage />} />
+          <Route path="/otp" element={<OtpPage />} />
 
           <Route
             path="/doctor"

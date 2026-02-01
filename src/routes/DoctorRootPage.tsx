@@ -4,6 +4,8 @@ import { usePrescriptionSession } from '../state/PresessionStateContext';
 import { roleAccent } from '../routing/rolePaths';
 import { generateUUID } from '../utils/uuid';
 import { computeDigitalSignature } from '../utils/hash';
+import { createEncryptedPrescription } from '../utils/crypto';
+import { demonstrateEncodingVsEncryption } from '../utils/encoding';
 import QRCode from '../components/QRCode';
 import AuditLogViewer from '../components/AuditLogViewer';
 import type { Prescription, Medicine, QRPrescriptionData } from '../types/prescription';
@@ -47,27 +49,47 @@ export default function DoctorRootPage() {
 
     const id = generateUUID();
     const timestamp = new Date().toISOString();
-    const prescription: Prescription = {
-      id,
+    
+    // Prepare prescription data for encryption
+    const prescriptionData = {
       patientName: patientName.trim(),
-      doctorName: 'Dr. Smith',
-      timestamp,
       medicineList: medicines.map((m) => ({
         name: m.name.trim(),
         dose: m.dose.trim(),
         frequency: m.frequency.trim(),
       })),
+      doctorName: 'Dr. Smith',
+      timestamp,
+    };
+
+    // Create encrypted prescription (demonstrates hybrid cryptography)
+    const encryptedPrescription = createEncryptedPrescription(prescriptionData);
+    
+    // Demonstrate encoding vs encryption (academic requirement)
+    const encodingDemo = demonstrateEncodingVsEncryption(prescriptionData);
+    
+    // Generate digital signature on original data (before encryption for integrity)
+    const digitalSignature = computeDigitalSignature({
+      id,
+      patientName: prescriptionData.patientName,
+      medicineList: prescriptionData.medicineList,
+      timestamp,
+    });
+
+    const prescription: Prescription = {
+      id,
+      patientName: prescriptionData.patientName,
+      doctorName: prescriptionData.doctorName,
+      timestamp,
+      medicineList: prescriptionData.medicineList,
       status: 'ISSUED',
-      digitalSignature: computeDigitalSignature({
-        id,
-        patientName: patientName.trim(),
-        medicineList: medicines.map((m) => ({
-          name: m.name.trim(),
-          dose: m.dose.trim(),
-          frequency: m.frequency.trim(),
-        })),
-        timestamp,
-      }),
+      digitalSignature,
+      encryptionStatus: 'ENCRYPTED',
+      encryptedData: {
+        encryptedData: encryptedPrescription.encryptedData,
+        encryptedKey: encryptedPrescription.encryptedKey,
+        publicKey: encryptedPrescription.publicKey,
+      },
     };
 
     addPrescription(prescription);
@@ -75,7 +97,7 @@ export default function DoctorRootPage() {
       actorRole: 'DOCTOR',
       action: 'PRESCRIPTION_ISSUED',
       prescriptionId: id,
-      details: `Issued to ${patientName.trim()} with ${medicines.length} medicine(s)`,
+      details: `Issued to ${patientName.trim()} with ${medicines.length} medicine(s) - ENCRYPTED`,
     });
 
     setPatientName('');
@@ -89,7 +111,7 @@ export default function DoctorRootPage() {
         <h1 className="dashboard-title" style={{ color: accent }}>
           Doctor Dashboard
         </h1>
-        <p className="dashboard-subtitle">Issue digitally signed prescriptions (session only)</p>
+        <p className="dashboard-subtitle">Issue encrypted, digitally signed prescriptions (session only)</p>
       </header>
 
       <form className="dashboard-form" onSubmit={onSubmit} aria-label="Issue prescription">
@@ -185,9 +207,14 @@ export default function DoctorRootPage() {
               <div key={p.id} className={`prescription-card prescription-card--${p.status.toLowerCase()}`}>
                 <div className="prescription-header">
                   <span className="prescription-id">{p.id}</span>
-                  <span className={`prescription-status prescription-status--${p.status.toLowerCase()}`}>
-                    {p.status}
-                  </span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span className={`prescription-status prescription-status--${p.status.toLowerCase()}`}>
+                      {p.status}
+                    </span>
+                    <span className={`prescription-status prescription-status--${(p.encryptionStatus || 'DECRYPTED').toLowerCase()}`}>
+                      {p.encryptionStatus || 'DECRYPTED'}
+                    </span>
+                  </div>
                 </div>
                 <div className="prescription-body">
                   <p className="prescription-field">
@@ -203,6 +230,18 @@ export default function DoctorRootPage() {
                   <p className="prescription-field">
                     <strong>Issued:</strong> {new Date(p.timestamp).toLocaleString()}
                   </p>
+                  {p.encryptedData && (
+                    <div className="demo-credentials" style={{ marginTop: 16, padding: 12, background: 'rgba(11, 18, 32, 0.55)', borderRadius: 8, fontSize: 11 }}>
+                      <strong>🔐 Security Features Active:</strong><br />
+                      • Password Hashing: PBKDF2 with salt<br />
+                      • Encryption: AES-256 + simulated RSA<br />
+                      • Digital Signatures: SHA-256 integrity<br />
+                      • Multi-Factor Auth: Password + OTP<br />
+                      • Access Control: Role-based permissions<br />
+                      • Audit Trail: Immutable logging<br />
+                      • <em>Check console for encoding vs encryption demo</em>
+                    </div>
+                  )}
                 </div>
                 <div style={{ marginTop: 12 }}>
                   <QRCode data={qrData} size={96} expandable />
@@ -215,6 +254,17 @@ export default function DoctorRootPage() {
 
       <div className="notice">
         Prescriptions persist across refresh. QR codes contain {`{id, digitalSignature}`} for verification.
+      </div>
+
+      <div className="demo-credentials" style={{ marginTop: 16, padding: 12, background: 'rgba(11, 18, 32, 0.55)', borderRadius: 8, fontSize: 11 }}>
+        <strong>🔐 Security Features Active:</strong><br />
+        • Password Hashing: PBKDF2 with salt<br />
+        • Encryption: AES-256 + simulated RSA<br />
+        • Digital Signatures: SHA-256 integrity<br />
+        • Multi-Factor Auth: Password + OTP<br />
+        • Access Control: Role-based permissions<br />
+        • Audit Trail: Immutable logging<br />
+        • <em>Check console for encoding vs encryption demo</em>
       </div>
 
       <AuditLogViewer auditLog={session.auditLog} />

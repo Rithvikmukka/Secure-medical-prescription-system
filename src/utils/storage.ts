@@ -19,9 +19,23 @@ export function loadPrescriptions(): Prescription[] {
     const stored = localStorage.getItem(STORAGE_KEYS.PRESCRIPTIONS);
     if (!stored) return [];
     const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : [];
+    
+    if (!Array.isArray(parsed)) return [];
+    
+    // Migrate old prescriptions to include encryptionStatus
+    const migrated = parsed.map((prescription: any) => ({
+      ...prescription,
+      encryptionStatus: prescription.encryptionStatus || 'DECRYPTED',
+    }));
+    
+    // Save migrated data back to localStorage
+    savePrescriptions(migrated);
+    
+    return migrated;
   } catch (error) {
     console.error('Failed to load prescriptions from localStorage:', error);
+    // Clear corrupted data
+    localStorage.removeItem(STORAGE_KEYS.PRESCRIPTIONS);
     return [];
   }
 }

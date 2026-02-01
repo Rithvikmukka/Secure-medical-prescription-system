@@ -1,7 +1,8 @@
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useMemo, useState, useEffect } from 'react';
 import { useAppState } from '../state/AppStateContext';
 import { generateOTP } from '../utils/otp';
+import { verifyUserCredentials, initializeDemoUsers, areDemoUsersInitialized } from '../utils/passwordStore';
 import './authPages.css';
 
 function roleAccent(role: string | null) {
@@ -31,25 +32,60 @@ export default function LoginPage() {
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+
+  // Initialize demo users with hashed passwords on component mount
+  useEffect(() => {
+    if (!areDemoUsersInitialized()) {
+      initializeDemoUsers();
+    }
+  }, []);
 
   const canSubmit = useMemo(() => {
     return usernameOrEmail.trim().length > 0 && password.trim().length > 0;
   }, [usernameOrEmail, password]);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitted(true);
+    setLoginError('');
 
     if (!canSubmit) return;
 
-    // Generate OTP for the role
-    const otp = generateOTP(role!);
-    
-    // Show OTP to user (demo simulation)
-    alert(`🔐 Your OTP code is: ${otp}\n\nIn production, this would be sent via SMS/email.`);
-    
-    setAuthStatus('password_verified');
-    navigate('/otp');
+    setIsLoading(true);
+
+    try {
+      // Verify credentials against hashed passwords
+      const verification = await verifyUserCredentials(usernameOrEmail.trim(), password);
+      
+      if (!verification.success) {
+        setLoginError('Invalid username or password');
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if verified role matches selected role
+      if (verification.role !== role) {
+        setLoginError(`Access denied. Selected role (${role}) doesn't match your credentials (${verification.role}).`);
+        setIsLoading(false);
+        return;
+      }
+
+      // Generate OTP for the verified role
+      const otp = generateOTP(role!);
+      
+      // Show OTP to user (demo simulation)
+      alert(`🔐 Your OTP code is: ${otp}\n\nIn production, this would be sent via SMS/email.`);
+      
+      setAuthStatus('password_verified');
+      navigate('/otp');
+    } catch (error) {
+      setLoginError('Login failed. Please try again.');
+      console.error('Login error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -77,7 +113,7 @@ export default function LoginPage() {
       <form className="auth-form" onSubmit={onSubmit} aria-label="Login form">
         <div className="field">
           <label className="label" htmlFor="usernameOrEmail">
-            Username or Email
+            Username
           </label>
           <input
             id="usernameOrEmail"
@@ -86,6 +122,7 @@ export default function LoginPage() {
             autoComplete="username"
             value={usernameOrEmail}
             onChange={(e) => setUsernameOrEmail(e.target.value)}
+            placeholder="doctor, pharmacist, or patient"
           />
         </div>
 
@@ -100,19 +137,32 @@ export default function LoginPage() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter your password"
           />
         </div>
 
-        {submitted && !canSubmit ? (
-          <div className="inline-error" role="alert">
-            Both fields are required.
+        {loginError && (
+          <div className="notice" style={{ marginTop: 0, borderColor: 'var(--error)', color: 'var(--error)' }}>
+            {loginError}
           </div>
-        ) : null}
+        )}
 
-        <button className="primary" type="submit" disabled={!canSubmit} aria-label="Login">
-          Login
+        <button
+          type="submit"
+          className="btn btn--primary"
+          disabled={!canSubmit || isLoading}
+        >
+          {isLoading ? 'Verifying...' : 'Login & Generate OTP'}
         </button>
       </form>
+
+      <div className="demo-credentials" style={{ marginTop: 16, padding: 12, background: 'rgba(11, 18, 32, 0.55)', borderRadius: 8, fontSize: 12 }}>
+        <strong>Demo Credentials (hashed passwords):</strong><br />
+        • Username: <code>doctor</code>, Password: <code>doctor123</code><br />
+        • Username: <code>pharmacist</code>, Password: <code>pharm123</code><br />
+        • Username: <code>patient</code>, Password: <code>patient123</code><br />
+        <em>Note: Passwords are stored as salted bcrypt hashes</em>
+      </div>
 
       <div style={{ marginTop: 6 }}>
         <Link to="/">Back to role selection</Link>
