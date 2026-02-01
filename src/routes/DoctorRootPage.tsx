@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 import { useAppState } from '../state/AppStateContext';
 import { usePrescriptionSession } from '../state/PresessionStateContext';
 import { roleAccent } from '../routing/rolePaths';
-import type { Prescription } from '../types/prescription';
+import { generateUUID } from '../utils/uuid';
+import { computeDigitalSignature } from '../utils/hash';
+import QRCode from '../components/QRCode';
+import type { Prescription, Medicine, QRPrescriptionData } from '../types/prescription';
 import './dashboard.css';
 
 export default function DoctorRootPage() {
@@ -10,35 +13,66 @@ export default function DoctorRootPage() {
   const { state: session, addPrescription } = usePrescriptionSession();
   const accent = roleAccent('doctor');
 
-  const [patientNameOrId, setPatientNameOrId] = useState('');
-  const [medicines, setMedicines] = useState('');
-  const [dosage, setDosage] = useState('');
+  const [patientName, setPatientName] = useState('');
+  const [medicines, setMedicines] = useState<Medicine[]>([{ name: '', dose: '', frequency: '' }]);
   const [notes, setNotes] = useState('');
 
   const canSubmit = useMemo(() => {
-    return patientNameOrId.trim().length > 0 && medicines.trim().length > 0 && dosage.trim().length > 0;
-  }, [patientNameOrId, medicines, dosage]);
+    return (
+      patientName.trim().length > 0 &&
+      medicines.every((m) => m.name.trim().length > 0 && m.dose.trim().length > 0 && m.frequency.trim().length > 0)
+    );
+  }, [patientName, medicines]);
+
+  function addMedicineRow() {
+    setMedicines([...medicines, { name: '', dose: '', frequency: '' }]);
+  }
+
+  function removeMedicineRow(index: number) {
+    if (medicines.length > 1) {
+      setMedicines(medicines.filter((_, i) => i !== index));
+    }
+  }
+
+  function updateMedicine(index: number, field: keyof Medicine, value: string) {
+    const updated = [...medicines];
+    updated[index] = { ...updated[index], [field]: value };
+    setMedicines(updated);
+  }
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
 
-    const newPrescription: Prescription = {
-      id: `RX-${Date.now()}`,
-      patientNameOrId: patientNameOrId.trim(),
-      medicines: medicines.split(',').map((m) => m.trim()).filter(Boolean),
-      dosage: dosage.trim(),
-      notes: notes.trim() || undefined,
-      createdAt: new Date(),
-      status: 'Unsigned',
-      createdBy: 'doctor',
+    const id = generateUUID();
+    const timestamp = new Date().toISOString();
+    const prescription: Prescription = {
+      id,
+      patientName: patientName.trim(),
+      doctorName: 'Dr. Smith',
+      timestamp,
+      medicineList: medicines.map((m) => ({
+        name: m.name.trim(),
+        dose: m.dose.trim(),
+        frequency: m.frequency.trim(),
+      })),
+      status: 'ISSUED',
+      digitalSignature: computeDigitalSignature({
+        id,
+        patientName: patientName.trim(),
+        medicineList: medicines.map((m) => ({
+          name: m.name.trim(),
+          dose: m.dose.trim(),
+          frequency: m.frequency.trim(),
+        })),
+        timestamp,
+      }),
     };
 
-    addPrescription(newPrescription);
+    addPrescription(prescription);
 
-    setPatientNameOrId('');
-    setMedicines('');
-    setDosage('');
+    setPatientName('');
+    setMedicines([{ name: '', dose: '', frequency: '' }]);
     setNotes('');
   }
 
@@ -48,55 +82,70 @@ export default function DoctorRootPage() {
         <h1 className="dashboard-title" style={{ color: accent }}>
           Doctor Dashboard
         </h1>
-        <p className="dashboard-subtitle">Issue and manage prescriptions (session only)</p>
+        <p className="dashboard-subtitle">Issue digitally signed prescriptions (session only)</p>
       </header>
 
       <form className="dashboard-form" onSubmit={onSubmit} aria-label="Issue prescription">
         <div className="form-row">
           <div className="field">
-            <label className="label" htmlFor="patientNameOrId">
-              Patient Name / ID
+            <label className="label" htmlFor="patientName">
+              Patient Name
             </label>
             <input
-              id="patientNameOrId"
+              id="patientName"
               className="input"
               type="text"
-              value={patientNameOrId}
-              onChange={(e) => setPatientNameOrId(e.target.value)}
+              value={patientName}
+              onChange={(e) => setPatientName(e.target.value)}
               autoComplete="off"
             />
           </div>
         </div>
 
-        <div className="form-row form-row--2">
+        <div className="form-row">
           <div className="field">
-            <label className="label" htmlFor="medicines">
-              Medicine name(s)
-            </label>
-            <input
-              id="medicines"
-              className="input"
-              type="text"
-              value={medicines}
-              onChange={(e) => setMedicines(e.target.value)}
-              autoComplete="off"
-              placeholder="e.g. Aspirin, Ibuprofen"
-            />
-          </div>
-
-          <div className="field">
-            <label className="label" htmlFor="dosage">
-              Dosage
-            </label>
-            <input
-              id="dosage"
-              className="input"
-              type="text"
-              value={dosage}
-              onChange={(e) => setDosage(e.target.value)}
-              autoComplete="off"
-              placeholder="e.g. 500mg twice daily"
-            />
+            <label className="label">Medicine List</label>
+            {medicines.map((med, idx) => (
+              <div key={idx} className="form-row form-row--2" style={{ marginBottom: 8 }}>
+                <input
+                  className="input"
+                  type="text"
+                  placeholder="Name"
+                  value={med.name}
+                  onChange={(e) => updateMedicine(idx, 'name', e.target.value)}
+                  autoComplete="off"
+                />
+                <input
+                  className="input"
+                  type="text"
+                  placeholder="Dose"
+                  value={med.dose}
+                  onChange={(e) => updateMedicine(idx, 'dose', e.target.value)}
+                  autoComplete="off"
+                />
+                <input
+                  className="input"
+                  type="text"
+                  placeholder="Frequency"
+                  value={med.frequency}
+                  onChange={(e) => updateMedicine(idx, 'frequency', e.target.value)}
+                  autoComplete="off"
+                />
+                {medicines.length > 1 && (
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => removeMedicineRow(idx)}
+                    style={{ padding: '10px 12px' }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+            <button type="button" className="btn btn--secondary" onClick={addMedicineRow}>
+              Add Medicine
+            </button>
           </div>
         </div>
 
@@ -123,41 +172,43 @@ export default function DoctorRootPage() {
         {session.prescriptions.length === 0 ? (
           <div className="empty-state">No prescriptions issued in this session.</div>
         ) : (
-          session.prescriptions.map((p) => (
-            <div key={p.id} className={`prescription-card prescription-card--${p.status.toLowerCase()}`}>
-              <div className="prescription-header">
-                <span className="prescription-id">{p.id}</span>
-                <span className={`prescription-status prescription-status--${p.status.toLowerCase()}`}>
-                  {p.status}
-                </span>
-              </div>
-              <div className="prescription-body">
-                <p className="prescription-field">
-                  <strong>Patient:</strong> {p.patientNameOrId}
-                </p>
-                <p className="prescription-field">
-                  <strong>Medicines:</strong> {p.medicines.join(', ')}
-                </p>
-                <p className="prescription-field">
-                  <strong>Dosage:</strong> {p.dosage}
-                </p>
-                {p.notes && (
+          session.prescriptions.map((p) => {
+            const qrData: QRPrescriptionData = { id: p.id, digitalSignature: p.digitalSignature };
+            return (
+              <div key={p.id} className={`prescription-card prescription-card--${p.status.toLowerCase()}`}>
+                <div className="prescription-header">
+                  <span className="prescription-id">{p.id}</span>
+                  <span className={`prescription-status prescription-status--${p.status.toLowerCase()}`}>
+                    {p.status}
+                  </span>
+                </div>
+                <div className="prescription-body">
                   <p className="prescription-field">
-                    <strong>Notes:</strong> {p.notes}
+                    <strong>Patient:</strong> {p.patientName}
                   </p>
-                )}
-                <p className="prescription-field">
-                  <strong>Created:</strong> {p.createdAt.toLocaleString()}
-                </p>
+                  <p className="prescription-field">
+                    <strong>Doctor:</strong> {p.doctorName}
+                  </p>
+                  <p className="prescription-field">
+                    <strong>Medicines:</strong>{' '}
+                    {p.medicineList.map((m) => `${m.name} (${m.dose}, ${m.frequency})`).join('; ')}
+                  </p>
+                  <p className="prescription-field">
+                    <strong>Issued:</strong> {new Date(p.timestamp).toLocaleString()}
+                  </p>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <QRCode data={qrData} size={96} expandable />
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
       <div className="notice">
-        Prescriptions are stored only in the current session. No backend persistence or cryptographic
-        signing is implemented yet.
+        Prescriptions are stored only in the current session. QR codes contain {`{id, digitalSignature}`} for
+        verification.
       </div>
     </section>
   );

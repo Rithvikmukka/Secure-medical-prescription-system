@@ -126,7 +126,7 @@
   gap: 8px;
 }
 
-.prescription-card--unsigned {
+.prescription-card--issued {
   border-color: rgba(231, 238, 252, 0.2);
 }
 
@@ -164,7 +164,7 @@
   letter-spacing: 0.02em;
 }
 
-.prescription-status--unsigned {
+.prescription-status--issued {
   background: rgba(231, 238, 252, 0.15);
   border-color: rgba(231, 238, 252, 0.3);
   color: var(--muted);

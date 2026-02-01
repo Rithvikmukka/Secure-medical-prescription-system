@@ -9,6 +9,7 @@ type PrescriptionSessionState = {
 type PrescriptionSessionContextValue = {
   state: PrescriptionSessionState;
   addPrescription: (p: Prescription) => void;
+  updatePrescriptionStatus: (id: string, status: Prescription['status']) => void;
   setVerificationResult: (r: VerificationResult | null) => void;
 };
 
@@ -26,6 +27,11 @@ export function PrescriptionSessionProvider({ children }: { children: React.Reac
     return {
       state,
       addPrescription: (p) => setState((s) => ({ ...s, prescriptions: [...s.prescriptions, p] })),
+      updatePrescriptionStatus: (id, status) =>
+        setState((s) => ({
+          ...s,
+          prescriptions: s.prescriptions.map((p) => (p.id === id ? { ...p, status } : p)),
+        })),
       setVerificationResult: (r) => setState((s) => ({ ...s, verificationResult: r })),
     };
   }, [state]);

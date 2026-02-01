@@ -2,46 +2,87 @@ import { useMemo, useState } from 'react';
 import { useAppState } from '../state/AppStateContext';
 import { usePrescriptionSession } from '../state/PresessionStateContext';
 import { roleAccent } from '../routing/rolePaths';
-import type { VerificationResult } from '../types/prescription';
+import { computeDigitalSignature } from '../utils/hash';
+import type { QRPrescriptionData, Prescription } from '../types/prescription';
 import './dashboard.css';
 
 export default function PharmacistRootPage() {
   const { state } = useAppState();
-  const { state: session, setVerificationResult } = usePrescriptionSession();
+  const { state: session, updatePrescriptionStatus } = usePrescriptionSession();
   const accent = roleAccent('pharmacist');
 
-  const [prescriptionId, setPrescriptionId] = useState('');
+  const [qrJsonInput, setQrJsonInput] = useState('');
+  const [verificationResult, setVerificationResult] = useState<{
+    status: 'Not Verified' | 'Valid' | 'Invalid' | 'Tampered';
+    prescriptionId?: string;
+    message?: string;
+  } | null>(null);
 
   const canVerify = useMemo(() => {
-    return prescriptionId.trim().length > 0;
-  }, [prescriptionId]);
+    return qrJsonInput.trim().length > 0;
+  }, [qrJsonInput]);
 
   function onVerify(e: React.FormEvent) {
     e.preventDefault();
     if (!canVerify) return;
 
-    const mockResult: VerificationResult = {
-      status: 'Not Verified',
-      summary: {
-        id: prescriptionId.trim(),
-        patientNameOrId: 'Demo Patient',
-        medicines: ['Aspirin'],
-        dosage: '500mg once daily',
-        notes: 'Take after food',
-        doctorName: 'Dr. Smith',
-        createdAt: new Date(),
-      },
-    };
+    let qrData: QRPrescriptionData;
+    try {
+      qrData = JSON.parse(qrJsonInput.trim());
+    } catch {
+      setVerificationResult({
+        status: 'Invalid',
+        message: 'Invalid QR JSON format.',
+      });
+      return;
+    }
 
-    setVerificationResult(mockResult);
+    if (!qrData.id || !qrData.digitalSignature) {
+      setVerificationResult({
+        status: 'Invalid',
+        message: 'QR payload must contain id and digitalSignature.',
+      });
+      return;
+    }
+
+    const prescription = session.prescriptions.find((p: Prescription) => p.id === qrData.id);
+    if (!prescription) {
+      setVerificationResult({
+        status: 'Invalid',
+        prescriptionId: qrData.id,
+        message: 'Prescription not found in session.',
+      });
+      return;
+    }
+
+    const expectedSignature = computeDigitalSignature({
+      id: prescription.id,
+      patientName: prescription.patientName,
+      medicineList: prescription.medicineList,
+      timestamp: prescription.timestamp,
+    });
+
+    if (qrData.digitalSignature === expectedSignature) {
+      updatePrescriptionStatus(prescription.id, 'VERIFIED');
+      setVerificationResult({
+        status: 'Valid',
+        prescriptionId: prescription.id,
+        message: 'Signature matches. Prescription verified.',
+      });
+    } else {
+      updatePrescriptionStatus(prescription.id, 'TAMPERED');
+      setVerificationResult({
+        status: 'Tampered',
+        prescriptionId: prescription.id,
+        message: 'Signature mismatch. Prescription may be tampered.',
+      });
+    }
   }
 
-  function onSimulatedScan() {
-    const mockId = `RX-${Date.now()}`;
-    setPrescriptionId(mockId);
+  function onCopyQR(id: string, digitalSignature: string) {
+    const payload: QRPrescriptionData = { id, digitalSignature };
+    setQrJsonInput(JSON.stringify(payload, null, 2));
   }
-
-  const result = session.verificationResult;
 
   return (
     <section className="dashboard-shell">
@@ -49,7 +90,7 @@ export default function PharmacistRootPage() {
         <h1 className="dashboard-title" style={{ color: accent }}>
           Pharmacist Verification Portal
         </h1>
-        <p className="dashboard-subtitle">Verify prescription authenticity (UI simulation only)</p>
+        <p className="dashboard-subtitle">Verify prescription authenticity via QR payload</p>
       </header>
 
       <div className="verification-panel">
@@ -58,72 +99,85 @@ export default function PharmacistRootPage() {
         <form onSubmit={onVerify} aria-label="Verify prescription">
           <div className="form-row">
             <div className="field">
-              <label className="label" htmlFor="prescriptionId">
-                Prescription ID
+              <label className="label" htmlFor="qrJsonInput">
+                QR JSON Payload
               </label>
-              <input
-                id="prescriptionId"
-                className="input"
-                type="text"
-                value={prescriptionId}
-                onChange={(e) => setPrescriptionId(e.target.value)}
-                autoComplete="off"
-                placeholder="e.g. RX-123456789"
+              <textarea
+                id="qrJsonInput"
+                className="textarea"
+                rows={4}
+                value={qrJsonInput}
+                onChange={(e) => setQrJsonInput(e.target.value)}
+                placeholder='{"id":"...","digitalSignature":"..."}'
               />
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button className="btn btn--primary" type="submit" disabled={!canVerify}>
-              Verify
-            </button>
-            <button className="btn btn--secondary" type="button" onClick={onSimulatedScan}>
-              Simulate QR Scan
-            </button>
-          </div>
+          <button className="btn btn--primary" type="submit" disabled={!canVerify}>
+            Verify
+          </button>
         </form>
 
-        {result && (
+        {verificationResult && (
           <div
-            className={`verification-result verification-result--${result.status.toLowerCase().replace(' ', '-')}`}
+            className={`verification-result verification-result--${verificationResult.status.toLowerCase()}`}
           >
-            <div className={`verification-status verification-status--${result.status.toLowerCase().replace(' ', '-')}`}>
-              Status: {result.status}
+            <div className={`verification-status verification-status--${verificationResult.status.toLowerCase()}`}>
+              Status: {verificationResult.status}
             </div>
-            {result.summary && (
-              <div className="prescription-body">
-                <p className="prescription-field">
-                  <strong>ID:</strong> {result.summary.id}
-                </p>
-                <p className="prescription-field">
-                  <strong>Patient:</strong> {result.summary.patientNameOrId}
-                </p>
-                <p className="prescription-field">
-                  <strong>Medicines:</strong> {result.summary.medicines?.join(', ')}
-                </p>
-                <p className="prescription-field">
-                  <strong>Dosage:</strong> {result.summary.dosage}
-                </p>
-                {result.summary.notes && (
-                  <p className="prescription-field">
-                    <strong>Notes:</strong> {result.summary.notes}
-                  </p>
-                )}
-                <p className="prescription-field">
-                  <strong>Doctor:</strong> {result.summary.doctorName}
-                </p>
-                <p className="prescription-field">
-                  <strong>Created:</strong> {result.summary.createdAt?.toLocaleString()}
-                </p>
-              </div>
+            {verificationResult.prescriptionId && (
+              <p className="prescription-field" style={{ margin: '4px 0' }}>
+                <strong>ID:</strong> {verificationResult.prescriptionId}
+              </p>
+            )}
+            {verificationResult.message && (
+              <p className="prescription-field" style={{ margin: '4px 0' }}>
+                {verificationResult.message}
+              </p>
             )}
           </div>
         )}
       </div>
 
+      <div className="prescription-list">
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>All Prescriptions</h2>
+        {session.prescriptions.length === 0 ? (
+          <div className="empty-state">No prescriptions in session.</div>
+        ) : (
+          session.prescriptions.map((p: Prescription) => (
+            <div key={p.id} className={`prescription-card prescription-card--${p.status.toLowerCase()}`}>
+              <div className="prescription-header">
+                <span className="prescription-id">{p.id}</span>
+                <span className={`prescription-status prescription-status--${p.status.toLowerCase()}`}>
+                  {p.status}
+                </span>
+              </div>
+              <div className="prescription-body">
+                <p className="prescription-field">
+                  <strong>Patient:</strong> {p.patientName}
+                </p>
+                <p className="prescription-field">
+                  <strong>Doctor:</strong> {p.doctorName}
+                </p>
+                <p className="prescription-field">
+                  <strong>Issued:</strong> {new Date(p.timestamp).toLocaleString()}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => onCopyQR(p.id, p.digitalSignature)}
+                style={{ marginTop: 8 }}
+              >
+                Copy QR Payload
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
       <div className="notice">
-        Verification is UI-simulated only. No backend, cryptography, or real QR scanning is
-        implemented yet.
+        Paste QR JSON payload above to verify. Status updates are reflected across all dashboards.
       </div>
     </section>
   );
