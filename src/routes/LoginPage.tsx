@@ -1,6 +1,7 @@
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { type FormEvent, useMemo, useState } from 'react';
 import { useAppState } from '../state/AppStateContext';
+import { generateOTP } from '../utils/otp';
 import './authPages.css';
 
 function roleAccent(role: string | null) {
@@ -41,6 +42,12 @@ export default function LoginPage() {
 
     if (!canSubmit) return;
 
+    // Generate OTP for the role
+    const otp = generateOTP(role!);
+    
+    // Show OTP to user (demo simulation)
+    alert(`🔐 Your OTP code is: ${otp}\n\nIn production, this would be sent via SMS/email.`);
+    
     setAuthStatus('password_verified');
     navigate('/otp');
   }

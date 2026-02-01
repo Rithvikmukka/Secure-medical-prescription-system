@@ -97,6 +97,20 @@
   cursor: not-allowed;
 }
 
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+  padding: 0;
+}
+
+.btn-link:hover {
+  color: var(--text);
+}
+
 .inline-error {
   border: 1px solid rgba(231, 238, 252, 0.2);
   background: rgba(11, 18, 32, 0.55);

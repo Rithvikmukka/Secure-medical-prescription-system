@@ -5,12 +5,13 @@ import { roleAccent } from '../routing/rolePaths';
 import { generateUUID } from '../utils/uuid';
 import { computeDigitalSignature } from '../utils/hash';
 import QRCode from '../components/QRCode';
+import AuditLogViewer from '../components/AuditLogViewer';
 import type { Prescription, Medicine, QRPrescriptionData } from '../types/prescription';
 import './dashboard.css';
 
 export default function DoctorRootPage() {
   const { state } = useAppState();
-  const { state: session, addPrescription } = usePrescriptionSession();
+  const { state: session, addPrescription, addAuditLogEntry } = usePrescriptionSession();
   const accent = roleAccent('doctor');
 
   const [patientName, setPatientName] = useState('');
@@ -70,6 +71,12 @@ export default function DoctorRootPage() {
     };
 
     addPrescription(prescription);
+    addAuditLogEntry({
+      actorRole: 'DOCTOR',
+      action: 'PRESCRIPTION_ISSUED',
+      prescriptionId: id,
+      details: `Issued to ${patientName.trim()} with ${medicines.length} medicine(s)`,
+    });
 
     setPatientName('');
     setMedicines([{ name: '', dose: '', frequency: '' }]);
@@ -207,9 +214,10 @@ export default function DoctorRootPage() {
       </div>
 
       <div className="notice">
-        Prescriptions are stored only in the current session. QR codes contain {`{id, digitalSignature}`} for
-        verification.
+        Prescriptions persist across refresh. QR codes contain {`{id, digitalSignature}`} for verification.
       </div>
+
+      <AuditLogViewer auditLog={session.auditLog} />
     </section>
   );
 }

@@ -274,3 +274,70 @@
   color: var(--muted);
   font-size: 12px;
 }
+
+/* Audit Log Styles */
+.audit-log-viewer {
+  margin-top: 24px;
+  padding: 16px;
+  background: rgba(11, 18, 32, 0.55);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.audit-log-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.audit-log-entry {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.audit-log-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.audit-log-timestamp {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.audit-log-role,
+.audit-log-action {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border: 1px solid;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.audit-log-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--muted);
+}
+
+.audit-log-prescription-id {
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.audit-log-message {
+  font-style: italic;
+}

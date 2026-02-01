@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 
 export type Role = 'doctor' | 'pharmacist' | 'patient' | null;
-export type AuthStatus = 'unauthenticated' | 'password_verified' | 'authenticated';
+export type AuthStatus = 'unauthenticated' | 'password_verified' | 'otp_verified' | 'authenticated';
 
 export type OtpState = {
   code: string | null;
   expiresAt: number | null;
+  attempts: number;
 };
 
 export type AppState = {
@@ -30,6 +31,7 @@ const initialState: AppState = {
   otp: {
     code: null,
     expiresAt: null,
+    attempts: 0,
   },
 };
 

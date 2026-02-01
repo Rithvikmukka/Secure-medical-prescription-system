@@ -13,5 +13,9 @@ export default function PostLoginRouterPage() {
     return <Navigate to="/login" replace />;
   }
 
+  if (state.authStatus === 'password_verified') {
+    return <Navigate to="/otp" replace />;
+  }
+
   return <Navigate to={roleRootPath(state.selectedRole)} replace />;
 }

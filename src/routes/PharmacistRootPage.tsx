@@ -3,12 +3,14 @@ import { useAppState } from '../state/AppStateContext';
 import { usePrescriptionSession } from '../state/PresessionStateContext';
 import { roleAccent } from '../routing/rolePaths';
 import { computeDigitalSignature } from '../utils/hash';
+import QRCode from '../components/QRCode';
+import AuditLogViewer from '../components/AuditLogViewer';
 import type { QRPrescriptionData, Prescription } from '../types/prescription';
 import './dashboard.css';
 
 export default function PharmacistRootPage() {
   const { state } = useAppState();
-  const { state: session, updatePrescriptionStatus } = usePrescriptionSession();
+  const { state: session, updatePrescriptionStatus, addAuditLogEntry } = usePrescriptionSession();
   const accent = roleAccent('pharmacist');
 
   const [qrJsonInput, setQrJsonInput] = useState('');
@@ -34,6 +36,12 @@ export default function PharmacistRootPage() {
         status: 'Invalid',
         message: 'Invalid QR JSON format.',
       });
+      addAuditLogEntry({
+        actorRole: 'PHARMACIST',
+        action: 'VERIFICATION_FAILED',
+        prescriptionId: 'unknown',
+        details: 'Invalid QR JSON format',
+      });
       return;
     }
 
@@ -41,6 +49,12 @@ export default function PharmacistRootPage() {
       setVerificationResult({
         status: 'Invalid',
         message: 'QR payload must contain id and digitalSignature.',
+      });
+      addAuditLogEntry({
+        actorRole: 'PHARMACIST',
+        action: 'VERIFICATION_FAILED',
+        prescriptionId: qrData.id || 'unknown',
+        details: 'Missing required fields in QR payload',
       });
       return;
     }
@@ -51,6 +65,12 @@ export default function PharmacistRootPage() {
         status: 'Invalid',
         prescriptionId: qrData.id,
         message: 'Prescription not found in session.',
+      });
+      addAuditLogEntry({
+        actorRole: 'PHARMACIST',
+        action: 'VERIFICATION_FAILED',
+        prescriptionId: qrData.id,
+        details: 'Prescription not found in session',
       });
       return;
     }
@@ -69,12 +89,24 @@ export default function PharmacistRootPage() {
         prescriptionId: prescription.id,
         message: 'Signature matches. Prescription verified.',
       });
+      addAuditLogEntry({
+        actorRole: 'PHARMACIST',
+        action: 'QR_VERIFIED',
+        prescriptionId: prescription.id,
+        details: 'Prescription verified successfully',
+      });
     } else {
       updatePrescriptionStatus(prescription.id, 'TAMPERED');
       setVerificationResult({
         status: 'Tampered',
         prescriptionId: prescription.id,
         message: 'Signature mismatch. Prescription may be tampered.',
+      });
+      addAuditLogEntry({
+        actorRole: 'PHARMACIST',
+        action: 'TAMPER_DETECTED',
+        prescriptionId: prescription.id,
+        details: 'Signature mismatch detected',
       });
     }
   }
@@ -177,8 +209,10 @@ export default function PharmacistRootPage() {
       </div>
 
       <div className="notice">
-        Paste QR JSON payload above to verify. Status updates are reflected across all dashboards.
+        Paste QR JSON payload above to verify. Status updates persist across refresh.
       </div>
+
+      <AuditLogViewer auditLog={session.auditLog} />
     </section>
   );
 }
