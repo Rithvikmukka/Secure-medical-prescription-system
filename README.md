@@ -1,175 +1,74 @@
 # Secure Medical Prescription System
 
-A comprehensive React + TypeScript application demonstrating advanced security features for medical prescription management.
+A React and TypeScript application built for a Foundations of Cyber Security course project. It demonstrates a prescription workflow for doctors, pharmacists, and patients, with browser-based authentication, encryption, and audit logging.
 
-## 🚀 Quick Start
+## Workflow
 
-```bash
+- Doctors create prescriptions and generate QR codes containing the prescription ID and a verification value.
+- Pharmacists submit the QR payload to decrypt prescription data and compare the verification value.
+- Patients have a read-only view of saved prescriptions.
+- Prescription creation and verification events appear in an audit log.
+
+## Run locally
+
+Install Node.js and npm, then run:
+
+```sh
+git clone https://github.com/Rithvikmukka/Secure-medical-prescription-system.git
+cd Secure-medical-prescription-system
 npm install
 npm run dev
-# Access: http://localhost:5173/
 ```
 
-**Demo Credentials:**
-- Doctor: `doctor/doctor123`
-- Pharmacist: `pharmacist/pharm123` 
-- Patient: `patient/patient123`
+Open the local URL printed by Vite, usually `http://localhost:5173`.
 
-## 🔐 Security Features
+To build and preview the application:
 
-### Authentication System
-- **Multi-Factor Authentication:** Password + 6-digit OTP
-- **Secure Password Storage:** PBKDF2 salted hashing
-- **Session Management:** Role-based authentication tokens
-- **Rate Limiting:** OTP attempt protection
-
-### Authorization & Access Control
-- **Role-Based Access Control:** Doctor/Pharmacist/Patient roles
-- **Medical Workflow:** Doctor creates → Pharmacist verifies → Patient views
-- **Route Protection:** Programmatic permission enforcement
-- **Audit Trail:** Complete action logging
-
-### Cryptographic Implementation
-- **AES-256 Encryption:** Prescription data protection
-- **Hybrid Key Exchange:** AES + simulated RSA key exchange
-- **Digital Signatures:** SHA-256 integrity verification
-- **Proper Workflow:** Sign → Encrypt → Store → Decrypt → Verify
-
-### Data Protection
-- **Salted Password Hashing:** Prevents rainbow table attacks
-- **Encoding Techniques:** Base64, URL, HTML encoding demonstrations
-- **Tamper Detection:** Digital signature verification
-- **Secure Storage:** Encrypted prescription data
-
-## 🧪 Demo Walkthrough
-
-### 1. Complete Security Workflow
-1. Visit `http://localhost:5173/`
-2. Select role → Login → OTP verification
-3. Access role-specific dashboard
-
-### 2. Encryption Demo (Doctor)
-- Create prescription → See **ENCRYPTED** status
-- View **[ENCRYPTED DATA]** placeholder
-- Console shows cryptographic operations
-
-### 3. Decryption Demo (Pharmacist)  
-- Verify prescription → Console shows decrypted data
-- Verification confirms integrity after decryption
-
-### 4. Encoding Demo
-- Create prescription → Console shows Base64 vs encryption
-- Clear distinction between encoding and encryption
-
-## 📁 Project Structure
-
+```sh
+npm run build
+npm run preview
 ```
+
+No backend or external database is required. Prescription records, audit logs, and demo password hashes are stored in the browser's local storage.
+
+## Demo accounts
+
+Select the matching role before signing in.
+
+| Role | Username | Password |
+| --- | --- | --- |
+| Doctor | `doctor` | `doctor123` |
+| Pharmacist | `pharmacist` | `pharm123` |
+| Patient | `patient` | `patient123` |
+
+After a successful password check, the application displays a six-digit OTP in an alert. Enter it on the verification page to continue. OTP delivery is simulated; no email or SMS is sent.
+
+To try the prescription workflow, create a prescription as a doctor, then sign in as a pharmacist in the same browser and use the QR payload to verify it. Clear the application's browser storage to reset saved data.
+
+## Security implementation
+
+- **Password hashing:** Salted PBKDF2 through SJCL, using 1,000 iterations for the demonstration.
+- **Prescription encryption:** AES encryption and decryption through CryptoJS.
+- **Role-based screens:** React route guards and role-specific views for doctors, pharmacists, and patients.
+- **OTP verification:** A local demonstration with expiry and an attempt limit.
+- **Audit logging:** Prescription and verification events recorded in browser storage.
+
+This is an educational prototype. Authentication and authorization run in the browser, and local data can be inspected or modified by the user. The RSA key exchange is simulated with Base64 encoding. The prescription verification value uses a simple non-cryptographic hash, rather than SHA-256 or a digital signature. Audit logs are editable local records.
+
+A deployed system would need server-side authorization, secure session and key management, a real OTP provider, cryptographic signature verification, and protected data and log storage. Use sample data when exploring this project.
+
+## Project structure
+
+```text
 src/
-├── components/          # Reusable UI components
-│   ├── QRCode.tsx      # QR code generation
-│   └── AuditLogViewer.tsx # Security audit display
-├── routes/             # Page components
-│   ├── RoleSelectPage.tsx
-│   ├── LoginPage.tsx
-│   ├── OtpPage.tsx
-│   ├── DoctorRootPage.tsx
-│   ├── PharmacistRootPage.tsx
-│   └── PatientRootPage.tsx
-├── state/              # Application state management
-│   ├── AppStateContext.tsx
-│   └── PresessionStateContext.tsx
-├── utils/              # Security utilities
-│   ├── crypto.ts       # AES encryption/decryption
-│   ├── encoding.ts     # Base64 encoding demo
-│   ├── passwordStore.ts # Hashed password storage
-│   ├── hash.ts         # Digital signatures
-│   ├── otp.ts          # OTP generation
-│   └── storage.ts      # Data persistence
-├── types/              # TypeScript definitions
-│   ├── prescription.ts
-│   └── audit.ts
-└── routing/            # Route protection
-    ├── RoleGuard.tsx
-    └── rolePaths.ts
+  components/   QR code display and audit log viewer
+  routes/       Login, OTP, and role-specific pages
+  routing/      Route guards and role paths
+  state/        Authentication and prescription state
+  types/        Prescription and audit log types
+  utils/        Encryption, hashing, OTP, and storage helpers
 ```
 
-## 🔒 Security Documentation
+Built with React 18, TypeScript, Vite, React Router, CryptoJS, SJCL, and qrcode.react.
 
-**File:** `SECURITY_ANALYSIS.md`
-
-**Comprehensive Analysis:**
-- Multi-tier security architecture
-- Attack vectors and mitigation strategies
-- Risk assessment and threat modeling
-- Medical context security considerations
-- Implementation best practices
-
-## 🛠️ Technology Stack
-
-### Frontend
-- **React 18** - Component-based UI framework
-- **TypeScript** - Type-safe JavaScript
-- **Vite** - Fast build tool and dev server
-- **React Router** - Client-side routing
-
-### Security Libraries
-- **SJCL** - Stanford JavaScript Crypto Library
-- **CryptoJS** - AES encryption implementation
-- **QRCode.react** - QR code generation
-
-### Development Tools
-- **ESLint** - Code quality and consistency
-- **TypeScript** - Static type checking
-
-## � Features
-
-### Medical Prescription Workflow
-- **Prescription Creation:** Doctors create encrypted prescriptions
-- **Verification Process:** Pharmacists verify authenticity
-- **Patient Access:** Patients view their own prescriptions
-- **Audit Logging:** Complete forensic trail
-
-### Security Demonstrations
-- **Real-time Encryption:** Live AES encryption demonstration
-- **Key Exchange:** Hybrid cryptography concepts
-- **Digital Signatures:** Integrity and authenticity verification
-- **Multi-Factor Auth:** Password + OTP security
-
-### User Experience
-- **Role-Based UI:** Tailored interfaces per role
-- **Visual Security Indicators:** Clear status displays
-- **Responsive Design:** Works across devices
-- **Console Logging:** Detailed security operation traces
-
-## � Deployment
-
-### Development
-```bash
-npm run dev    # Development server
-npm run build  # Production build
-npm run preview # Preview production build
-```
-
-### Production Considerations
-- **HTTPS Required:** Secure communication
-- **Environment Variables:** Secure configuration
-- **Database Integration:** Replace localStorage
-- **Key Management:** Proper cryptographic key storage
-
-## 📊 Architecture
-
-### Security Layers
-1. **Authentication Layer:** Multi-factor user verification
-2. **Authorization Layer:** Role-based access control
-3. **Encryption Layer:** Data protection at rest
-4. **Audit Layer:** Comprehensive logging
-
-### Data Flow
-1. **User Authentication** → Role verification
-2. **Prescription Creation** → Encryption + signing
-3. **Verification Process** → Decryption + validation
-4. **Audit Logging** → Immutable record keeping
-
----
-
-**Note:** This application demonstrates security concepts for educational purposes. In production environments, additional security measures and compliance requirements would be necessary.
+[Security analysis](SECURITY_ANALYSIS.md) contains the coursework threat model and risk assessment. Some descriptions there refer to intended production controls; the implementation notes above describe the current code.
